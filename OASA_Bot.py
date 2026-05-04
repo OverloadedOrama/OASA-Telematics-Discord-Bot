@@ -8,12 +8,13 @@ import OASA_Scraper as OASA
 
 TOKEN = "YourTokenHere"
 command_prefix = ""
-oasa_help_message = """Commands
-ΟΑΣΑ (bus line) 👉 Shows the bus line's route and real time data of the busses' locations.
+oasa_help_message = """**__Commands__**
 
-ΟΑΣΑ (bus line) (stop name or stop code) 👉 Shows real time data of the time it takes for the nearest bus to arrive at the stop (stop code is preferred because of OASA's limited creativity (duplicate stop names)).
+ΟΑΣΑ *bus line* 👉 Shows the bus line's route and real time data of the busses' locations.
 
-schedule (bus line) 👉 Shows the bus line's timetable.
+ΟΑΣΑ *bus line* *stop name or stop code* 👉 Shows real time data of the time it takes for the nearest bus to arrive at the stop (stop code is preferred because of OASA's limited creativity (duplicate stop names)).
+
+schedule *bus line* 👉 Shows the bus line's timetable.
 """
 
 intents = discord.Intents.default()
