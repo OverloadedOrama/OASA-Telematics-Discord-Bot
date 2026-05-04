@@ -95,6 +95,13 @@ async def on_message(message):
                         await chan.send("Μονο ενα λεωφορειο δινουμε ρε **ΜΠΕΤΟΒΛΑΚΑ ΓΑΜΩ ΤΗ ΤΥΧΗ ΣΟΥ**\n" + oasa_help_message)
 
 
+# Check if a string is in one of the strings of a given list.
+def ListInString(theList, theString):
+        for word in theList:
+                if word in theString:
+                        return True
+        return False
+
 
 async def getRouteCode(chan, routeCodes, routeDescr, busName, message):
         if len(routeCodes) == 1:
