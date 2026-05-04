@@ -111,7 +111,6 @@ def GetCodesForSchedule(busName):
 #Will be using getDailySchedule and getSchedLines
 def GetNextSchedule(busName, routeType):
 	lineCode, mlCode, sdc_code, sdc_code0, sdc_code1, sdc_code2 = GetCodesForSchedule(busName)
-	#for 825: ml_code = 153, sdc_code = 54 (for weekdays), line_code = 857
 
 	#Daily Schedules
 	json_response = telematics_request(f'?act=getDailySchedule&line_code={lineCode}')
@@ -179,7 +178,6 @@ def GetAllSchedules(busName):
 	lineCode, mlCode, sdc_code, sdc_code0, sdc_code1, sdc_code2 = GetCodesForSchedule(busName)
 	if lineCode is None:
 		return "Λεωφορείο {} δε βρήκα. Με έχετε κουράσει με τις **ΜΑΛΑΚΙΕΣ ΣΑΣ**.".format(busName)
-	#for 825: ml_code = 153, sdc_code = 54 (for weekdays), line_code = 857
 	#for 218: ml_code = 287, sdc_code = 54 (for weekdays), line_code = 1035
 
 	message = ""
@@ -334,5 +332,3 @@ def FindBusLocation(busName, routeCode):
 	return mapImg
 	#else:
 	#	return None
-
-#print(FindBus("825","260150"))

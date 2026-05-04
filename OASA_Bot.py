@@ -7,6 +7,7 @@ import requests #for OASA exception
 import OASA_Scraper as OASA
 
 TOKEN = "YourTokenHere"
+command_prefix = ""
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -20,41 +21,31 @@ async def on_message(message):
 
         msgUpper = message.content.upper()
         chan = message.channel
-        #Serious stuff
-        if msgUpper.startswith("OASA") or msgUpper.startswith("ΟΑΣΑ"):
+        if msgUpper.startswith(command_prefix + "OASA") or msgUpper.startswith(command_prefix + "ΟΑΣΑ"):
                 args = message.content.split(" ")
-                if len(args) == 2:
-                        await chan.typing()
-                        busName = args[1].upper()
-                        routeCode = ""
+                if len(args) == 1:
+                        await chan.send("Δώσε όνομα λεωφορείο και κωδικό στάσης... Τι περιμένεις να γίνει αλλιώς; Πχ OASA 824 400160\n" + oasa_help_message)
+                        return
+                await chan.typing()
+                busName = args[1].upper()
+                if ListInString(["HELP", "ΒΟΗΘ"], busName):
+                        await chan.send(oasa_help_message)
+                        return
+                routeCode = ""
 
-                        try:
-                                routeCodes, routeDescr, routeTypes = OASA.GetRouteCodes(busName)
-                        except requests.exceptions.ConnectionError:
-                                await chan.send("Connection error when trying to get the route code(s)")
-                                return
-                        except TypeError:
-                                await chan.send("Δε βρήκα λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
-                                return
+                try:
+                        routeCodes, routeDescr, routeTypes = OASA.GetRouteCodes(busName)
+                except requests.exceptions.ConnectionError:
+                        await chan.send("Connection error when trying to get the route code(s)")
+                        return
+                except TypeError:
+                        await chan.send("Δε βρήκα λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
+                        return
 
-                        if len(routeCodes) == 1:
-                                routeCode = routeCodes[0]
-                        else:
-                                await chan.send("Ποια διαδρομή του λεωφορείου {} σε ενδιαφέρει;\n\n{} (1)\n{} (2)".format(busName, routeDescr[0],routeDescr[1]))
-                                def int_check(m):
-                                        try:
-                                                mint = int(m.content)
-                                                return (mint == 1 or mint == 2) and message.author == m.author
-                                        except ValueError:
-                                                return False
-
-                                        
-                                direction = await client.wait_for("message", check=int_check)
-                                await chan.typing()
-                                direction = direction.content
-                                directionInt = int(direction)
-                                routeCode = routeCodes[directionInt-1]
-
+                routeCode, direction = await getRouteCode(chan, routeCodes, routeDescr, busName, message)
+                if routeCode == -1:
+                        return
+                if len(args) == 2:  # Grab the map
                         try:
                                 img = OASA.FindBusLocation(busName, routeCode)
                         except requests.exceptions.ConnectionError:
@@ -64,74 +55,32 @@ async def on_message(message):
                                 await chan.send(sys.exc_info())
                                 return
 
-                        #if img is None:
-                        #        await chan.send("No bus is found right now, RIP")
-                        #        return
                         img = "BusLocation.png"
                         await chan.send(file=discord.File(img))
-                elif len(args) > 2:
-                        await chan.typing()
-                        busName = args[1].upper()
+
+                elif len(args) > 2: # Asking about a specific stop
                         stop = " ".join(args[2:]).upper()
                         stopName = stop
-                        routeType = "1" #1 from start or if it's cyclic, 2 from end
+                        routeType = routeTypes[direction - 1] # 1 from start or if it's cyclic, 2 from end
                         if any(c.isalpha() for c in stop):
-                                try:
-                                        routeCodes, routeDescr, routeTypes = OASA.GetRouteCodes(busName)
-                                except requests.exceptions.ConnectionError:
-                                        await chan.send("Connection error when trying to get the route code(s)")
-                                        return
-                                except TypeError:
-                                        await chan.send("Δε βρήκα λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
-                                        return
-
-                                if len(routeCodes) == 1:
-                                        try:
-                                                stop = OASA.GetStopCode(stopName, routeCodes[0])
-                                        except requests.exceptions.ConnectionError:
-                                                await chan.send("Connection error when trying to get the stop code")
-                                                return
-                                else:
-                                        await chan.send("Ποια διαδρομή του λεωφορείου {} σε ενδιαφέρει;\n\n{} (1)\n{} (2)".format(busName, routeDescr[0],routeDescr[1]))
-                                        def int_check(m):
-                                                try:
-                                                        mint = int(m.content)
-                                                        return (mint == 1 or mint == 2) and message.author == m.author
-                                                except ValueError:
-                                                        return False
-
-                                        
-                                        direction = await client.wait_for("message", check=int_check)
-                                        await chan.typing()
-                                        direction = direction.content
-                                        try:
-                                                if direction == "1":
-                                                        stop = OASA.GetStopCode(stopName, routeCodes[0])
-                                                        routeType = routeTypes[0]
-                                                elif direction == "2":
-                                                        stop = OASA.GetStopCode(stopName, routeCodes[1])
-                                                        routeType = routeTypes[1]
-                                                        #print(routeType)
-                                        except requests.exceptions.ConnectionError:
-                                                await chan.send("Connection error when trying to get the stop code")
-                                                return
+                                stop = OASA.GetStopCode(stopName, routeCode)
+                        if stop == "":
+                                await chan.send("Στάση {} εγώ πάντως δεν βρήκα. Μήπως κάναμε κανένα λαθάκι; ΗΛΙΘΙΕ".format(stopName))
+                                return
+                        print(busName, " ", stop, " ", routeType)
                         try:
-                                if stop == "":
-                                       await chan.send("Στάση {} εγώ πάντως δεν βρήκα. Μήπως κάναμε κανένα λαθάκι; ΗΛΙΘΙΕ".format(stopName))
-                                       return
-                                messageString = OASA.FindBus(busName,stop, routeType)
+                                messageString = OASA.FindBus(busName, stop, routeType)
                                 await chan.send(messageString)
                         except requests.exceptions.ConnectionError:
                                 await chan.send("Server took too long to respond and I got bored")
                         except:
                                 await chan.send(sys.exc_info())
-                else:
-                        await chan.send("Δώσε όνομα λεωφορείο και κωδικό στάσης... Τι περιμένεις να γίνει αλλιώς; Πχ OASA 824 400160")
+                        
 
-        if msgUpper.startswith("SCHEDUL") or msgUpper.startswith("ΔΡΟΜΟΛ"):
+        elif msgUpper.startswith(command_prefix + "SCHEDUL") or msgUpper.startswith(command_prefix + "ΔΡΟΜΟΛ"):
                 args = message.content.split(" ")
                 if len(args) == 1:
-                        await chan.send("με φώτισες.... ΠΟΙΟ ΛΕΩΟΦΟΡΕΙΟ ΘΕΣ ΡΕ **ΠΑΠΑΡΟΜΥΑΛΕ**????")
+                        await chan.send("με φώτισες.... ΠΟΙΟ ΛΕΩΟΦΟΡΕΙΟ ΘΕΣ ΡΕ **ΠΑΠΑΡΟΜΥΑΛΕ**????\n" + oasa_help_message)
                 elif len(args) == 2:
                         await chan.typing()
                         busName = args[1].upper()
@@ -143,6 +92,39 @@ async def on_message(message):
                         except:
                                 await chan.send(sys.exc_info())
                 else:
-                        await chan.send("Μονο ενα λεωφορειο δινουμε ρε **ΜΠΕΤΟΒΛΑΚΑ ΓΑΜΩ ΤΗ ΤΥΧΗ ΣΟΥ**")
+                        await chan.send("Μονο ενα λεωφορειο δινουμε ρε **ΜΠΕΤΟΒΛΑΚΑ ΓΑΜΩ ΤΗ ΤΥΧΗ ΣΟΥ**\n" + oasa_help_message)
+
+
+
+async def getRouteCode(chan, routeCodes, routeDescr, busName, message):
+        if len(routeCodes) == 1:
+                routeCode = routeCodes[0]
+                return routeCode, 1
+        else:
+                route_msg = "Ποια διαδρομή του λεωφορείου {} σε ενδιαφέρει;\n\n".format(busName)
+                i = 1
+                for route in routeDescr:
+                        route_msg += route + " ({})\n".format(i)
+                        i += 1
+                await chan.send(route_msg)
+
+                def check_if_same_author(m):
+                        return message.author == m.author
+
+
+                direction = await client.wait_for("message", check = check_if_same_author)
+                await chan.typing()
+                direction = direction.content
+                try:
+                        directionInt = int(direction)
+                        if len(routeCodes) >= directionInt:
+                                routeCode = routeCodes[directionInt - 1]
+                                return routeCode, directionInt
+                        await chan.send("Μάθε να μετράς πρώτα ΑΝΘΡΩΠΑΚΙ... και μετά μίλα μου. Γκέγκε;")
+                        return -1, -1
+                except ValueError:
+                        await chan.send("Ακούσε να δεις ΑΝΘΡΩΠΑΚΙ. Δεν θα με τρολάρεις ΕΣΥ ΕΜΕΝΑ, ΚΑΤΑΛΑΒΕΣ;")
+                        return -1, -1
+
 
 client.run(TOKEN)
