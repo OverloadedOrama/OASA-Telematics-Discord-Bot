@@ -6,8 +6,13 @@ import sys #for OASA exception
 import requests #for OASA exception
 import OASA_Scraper as OASA
 
+TOKEN = "YourTokenHere"
 
-client = commands.Bot(command_prefix = "")
+intents = discord.Intents.default()
+intents.message_content = True
+
+client = discord.Client(intents=intents)
+
 @client.event
 async def on_message(message):
         if message.author == client.user:
@@ -19,7 +24,7 @@ async def on_message(message):
         if msgUpper.startswith("OASA") or msgUpper.startswith("ΟΑΣΑ"):
                 args = message.content.split(" ")
                 if len(args) == 2:
-                        await chan.trigger_typing()
+                        await chan.typing()
                         busName = args[1].upper()
                         routeCode = ""
 
@@ -45,7 +50,7 @@ async def on_message(message):
 
                                         
                                 direction = await client.wait_for("message", check=int_check)
-                                await chan.trigger_typing()
+                                await chan.typing()
                                 direction = direction.content
                                 directionInt = int(direction)
                                 routeCode = routeCodes[directionInt-1]
@@ -65,13 +70,11 @@ async def on_message(message):
                         img = "BusLocation.png"
                         await chan.send(file=discord.File(img))
                 elif len(args) > 2:
-                        await chan.trigger_typing()
+                        await chan.typing()
                         busName = args[1].upper()
                         stop = " ".join(args[2:]).upper()
                         stopName = stop
                         routeType = "1" #1 from start or if it's cyclic, 2 from end
-                        #print(stop)
-                        #if stop.isalpha():
                         if any(c.isalpha() for c in stop):
                                 try:
                                         routeCodes, routeDescr, routeTypes = OASA.GetRouteCodes(busName)
@@ -99,9 +102,8 @@ async def on_message(message):
 
                                         
                                         direction = await client.wait_for("message", check=int_check)
-                                        await chan.trigger_typing()
+                                        await chan.typing()
                                         direction = direction.content
-                                        #print(direction)
                                         try:
                                                 if direction == "1":
                                                         stop = OASA.GetStopCode(stopName, routeCodes[0])
@@ -119,7 +121,6 @@ async def on_message(message):
                                        return
                                 messageString = OASA.FindBus(busName,stop, routeType)
                                 await chan.send(messageString)
-                                #await chan.send("{}\nΑνυπομονώ για τα self-driving λεωφορεία, μπας και δούμε καμία προκοπή στο τομέα των μεταφορών.".format(messageString))
                         except requests.exceptions.ConnectionError:
                                 await chan.send("Server took too long to respond and I got bored")
                         except:
@@ -132,7 +133,7 @@ async def on_message(message):
                 if len(args) == 1:
                         await chan.send("με φώτισες.... ΠΟΙΟ ΛΕΩΟΦΟΡΕΙΟ ΘΕΣ ΡΕ **ΠΑΠΑΡΟΜΥΑΛΕ**????")
                 elif len(args) == 2:
-                        await chan.trigger_typing()
+                        await chan.typing()
                         busName = args[1].upper()
                         try:
                                 messageString = OASA.GetAllSchedules(busName)
@@ -144,5 +145,4 @@ async def on_message(message):
                 else:
                         await chan.send("Μονο ενα λεωφορειο δινουμε ρε **ΜΠΕΤΟΒΛΑΚΑ ΓΑΜΩ ΤΗ ΤΥΧΗ ΣΟΥ**")
 
-#client.loop.create_task(reaction_message_send())
-client.run("YourTokenHere")
+client.run(TOKEN)
