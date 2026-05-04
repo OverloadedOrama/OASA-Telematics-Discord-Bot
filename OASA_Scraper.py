@@ -5,7 +5,6 @@ from staticmap import StaticMap, CircleMarker, IconMarker, Line
 
 API_ENDPOINT = "https://telematics.oasa.gr/api/"
 
-
 # https://github.com/panosmz/oasatelematics
 def telematics_request(query: str):
     req = requests.post(API_ENDPOINT + query)
@@ -117,7 +116,7 @@ def GetNextSchedule(busName, routeType):
 	#Daily Schedules
 	json_response = telematics_request(f'?act=getDailySchedule&line_code={lineCode}')
 	if not json_response["go"] and not json_response["come"]:
-		json_response = telematics_request(f'?act=getSchedLines&p1={mlcode}&p2={sdc_code}&p3={lineCode}')
+		json_response = telematics_request(f'?act=getSchedLines&p1={mlCode}&p2={sdc_code}&p3={lineCode}')
 	day = datetime.datetime.today().weekday()
 	now = datetime.datetime.now()
 	curYear = now.year
@@ -155,9 +154,16 @@ def GetNextSchedule(busName, routeType):
 		else: #Sunday
 			sdc_code = sdc_code0 #get Monday's code
 
-		json_response = telematics_request(f'?act=getSchedLines&p1={mlcode}&p2={sdc_code}&p3={lineCode}')
-
-		firstSched = json_response[startOrEnd][0][sde_start]
+		json_response = telematics_request(f'?act=getSchedLines&p1={mlCode}&p2={sdc_code}&p3={lineCode}')
+		routes = json_response[startOrEnd]
+		if not routes:
+			if startOrEnd == "come":
+				routes = json_response["go"]
+			else:
+				routes = json_response["come"]
+		if not routes:
+			return "Failed to find routes."
+		firstSched = routes[0][sde_start]
 		if "1900-01-01" in firstSched:
 			message = firstSched.replace("1900-01-01 ","")
 		elif "1900-01-02" in firstSched:
@@ -180,7 +186,7 @@ def GetAllSchedules(busName):
 	#Daily Schedules
 	json_response = telematics_request(f'?act=getDailySchedule&line_code={lineCode}')
 	if not json_response["go"] and not json_response["come"]:
-		json_response = telematics_request(f'?act=getSchedLines&p1={mlcode}&p2={sdc_code}&p3={lineCode}')
+		json_response = telematics_request(f'?act=getSchedLines&p1={mlCode}&p2={sdc_code}&p3={lineCode}')
 		message += "Δεν βρέθηκαν δρομολόγια ημερήσιου προγραμματισμού, οπότε θα σου δώσω γενικά της ημέρας, τα οποία ίσως και να μην ισχύουν\n\n"
 	#day = datetime.datetime.today().weekday()
 	#now = datetime.datetime.now()
