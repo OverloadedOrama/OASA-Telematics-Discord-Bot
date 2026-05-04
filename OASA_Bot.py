@@ -23,6 +23,14 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 @client.event
+async def on_ready():
+        print('Logged in as')
+        print(client.user.name)
+        print(client.user.id)
+        print('------')
+        await client.change_presence(activity = discord.Game(name = "Τα εξαφανισμένα λεωφορεία"))
+
+@client.event
 async def on_message(message):
         if message.author == client.user:
                 return
