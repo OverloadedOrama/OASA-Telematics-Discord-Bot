@@ -8,13 +8,17 @@ import OASA_Scraper as OASA
 
 TOKEN = "YourTokenHere"
 command_prefix = ""
-oasa_help_message = """**__Commands__**
+oasa_help_message = """📘 Commands
 
-ΟΑΣΑ *bus line* 👉 Shows the bus line's route and real time data of the busses' locations.
+OASA <bus line>
+👉 Shows the route of the bus line and real-time locations of the buses.
 
-ΟΑΣΑ *bus line* *stop name or stop code* 👉 Shows real time data of the time it takes for the nearest bus to arrive at the stop (stop code is preferred because of OASA's limited creativity (duplicate stop names)).
+OASA <bus line> <stop name | stop code>
+👉 Shows real-time arrival times for buses at a specific stop.
+⚠️ Using the stop code is recommended as some stops may have the same name.
 
-schedule *bus line* 👉 Shows the bus line's timetable.
+schedule <bus line>
+👉 Shows the timetable for the selected bus line.
 """
 
 intents = discord.Intents.default()
@@ -28,7 +32,7 @@ async def on_ready():
         print(client.user.name)
         print(client.user.id)
         print('------')
-        await client.change_presence(activity = discord.Game(name = "Τα εξαφανισμένα λεωφορεία"))
+        await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="Τα εξαφανισμένα λεωφορεία"))
 
 @client.event
 async def on_message(message):
