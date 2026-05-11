@@ -53,12 +53,25 @@ async def on_message(message):
                         return
 
                 try:
-                        routeCodes, routeDescr, routeTypes = OASA.GetRouteCodes(busName)
+                        lineCodes, lineDescr, mlCodes, sdc_codes = OASA.GetLineCodesWithMLInfo(busName)
+                        if len(lineCodes) == 0:
+                                await chan.send("Δε βρήκα κάποια γραμμή για το λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
+                                return
+                except requests.exceptions.ConnectionError:
+                        await chan.send("Connection error when trying to get the line code(s)")
+                        return
+                except:
+                        await chan.send(sys.exc_info())
+ 
+                lineCode, lineIndex = await getLineCode(chan, lineCodes, lineDescr, busName, message)
+                mlCode = mlCodes[lineIndex]
+                try:
+                        routeCodes, routeDescr, routeTypes = OASA.GetRouteCodes(busName, lineCode)
                 except requests.exceptions.ConnectionError:
                         await chan.send("Connection error when trying to get the route code(s)")
                         return
                 except TypeError:
-                        await chan.send("Δε βρήκα λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
+                        await chan.send("Δε βρήκα διαδρομή για το λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
                         return
 
                 routeCode, direction = await getRouteCode(chan, routeCodes, routeDescr, busName, message)
@@ -86,9 +99,9 @@ async def on_message(message):
                         if stop == "":
                                 await chan.send("Στάση {} εγώ πάντως δεν βρήκα. Μήπως κάναμε κανένα λαθάκι; ΗΛΙΘΙΕ".format(stopName))
                                 return
-                        print(busName, " ", stop, " ", routeType)
+
                         try:
-                                messageString = OASA.FindBus(busName, stop, routeType)
+                                messageString = OASA.FindBusAtStop(busName, stop, routeType, lineCode, mlCode)
                                 await chan.send(messageString)
                         except requests.exceptions.ConnectionError:
                                 await chan.send("Server took too long to respond and I got bored")
@@ -100,18 +113,31 @@ async def on_message(message):
                 args = message.content.split(" ")
                 if len(args) == 1:
                         await chan.send("με φώτισες.... ΠΟΙΟ ΛΕΩΟΦΟΡΕΙΟ ΘΕΣ ΡΕ **ΠΑΠΑΡΟΜΥΑΛΕ**????\n" + oasa_help_message)
-                elif len(args) == 2:
-                        await chan.typing()
-                        busName = args[1].upper()
-                        try:
-                                messageString = OASA.GetAllSchedules(busName)
-                                await chan.send(messageString)
-                        except requests.exceptions.ConnectionError:
-                                await chan.send("Server took too long to respond and I got bored")
-                        except:
-                                await chan.send(sys.exc_info())
-                else:
+                        return
+                elif len(args) > 2:
                         await chan.send("Μονο ενα λεωφορειο δινουμε ρε **ΜΠΕΤΟΒΛΑΚΑ ΓΑΜΩ ΤΗ ΤΥΧΗ ΣΟΥ**\n" + oasa_help_message)
+
+                await chan.typing()
+                busName = args[1].upper()
+                try:
+                        lineCodes, lineDescr, mlCodes, sdc_codes = OASA.GetLineCodesWithMLInfo(busName)
+                        if len(lineCodes) == 0:
+                                await chan.send("Δε βρήκα κάποια γραμμή για το λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
+                                return
+                except requests.exceptions.ConnectionError:
+                        await chan.send("Connection error when trying to get the line code(s)")
+                        return
+                except:
+                        await chan.send(sys.exc_info())
+                lineCode, lineIndex = await getLineCode(chan, lineCodes, lineDescr, busName, message)
+                mlCode = mlCodes[lineIndex]
+                try:
+                        messageString = OASA.GetAllSchedules(busName, lineCode, mlCode)
+                        await chan.send(messageString)
+                except requests.exceptions.ConnectionError:
+                        await chan.send("Server took too long to respond and I got bored")
+                except:
+                        await chan.send(sys.exc_info())
 
 
 # Check if a string is in one of the strings of a given list.
@@ -120,6 +146,36 @@ def ListInString(theList, theString):
                 if word in theString:
                         return True
         return False
+
+
+async def getLineCode(chan, lineCodes, lineDescr, busName, message):
+        if len(lineCodes) == 1:
+                lineCode = lineCodes[0]
+                return lineCode, 0
+        else:
+                line_msg = "Ποια εναλλακτική γραμμή του λεωφορείου {} σε ενδιαφέρει;\n\n".format(busName)
+                i = 1
+                for line in lineDescr:
+                        line_msg += line + " ({})\n".format(i)
+                        i += 1
+                await chan.send(line_msg)
+
+                def check_if_same_author(m):
+                        return message.author == m.author
+
+                line = await client.wait_for("message", check = check_if_same_author)
+                await chan.typing()
+                line = line.content
+                try:
+                        lineInt = int(line)
+                        if len(lineCodes) >= lineInt:
+                                lineCode = lineCodes[lineInt - 1]
+                                return lineCode, lineInt - 1
+                        await chan.send("Μάθε να μετράς πρώτα ΑΝΘΡΩΠΑΚΙ... και μετά μίλα μου. Γκέγκε;")
+                        return -1, -1
+                except ValueError:
+                        await chan.send("Ακούσε να δεις ΑΝΘΡΩΠΑΚΙ. Δεν θα με τρολάρεις ΕΣΥ ΕΜΕΝΑ, ΚΑΤΑΛΑΒΕΣ;")
+                        return -1, -1
 
 
 async def getRouteCode(chan, routeCodes, routeDescr, busName, message):
