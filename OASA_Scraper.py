@@ -37,8 +37,20 @@ def GetLineCodes(busName):
 		if resp["LineID"] == busName:
 			lineCodes.append(resp["LineCode"])
 			lineDescriptions.append(resp["LineDescr"])
-	
+
 	return lineCodes, lineDescriptions
+
+
+# Will be using webGetLines
+def GetLineID(line_code):
+	with open("webGetLines.json") as json_file:
+		json_response = json.load(json_file)
+	for resp in json_response:
+		if resp["LineCode"] == line_code:
+			return resp["LineID"], resp["LineDescr"]
+
+	return "", ""
+
 
 
 # Will be using webGetLinesWithMLInfo
@@ -60,7 +72,7 @@ def GetLineCodesWithMLInfo(busName):
 
 
 # Will be using webGetRoutes
-def GetRouteCodes(busName, lineCode):	
+def GetRouteCodes(busName, lineCode):
 	if lineCode == "":
 		return None
 	json_response = telematics_request(f'?act=webGetRoutes&p1={lineCode}')
@@ -71,11 +83,11 @@ def GetRouteCodes(busName, lineCode):
 		routeCodes.append(resp["RouteCode"])
 		routeDescr.append(resp["RouteDescr"])
 		routeTypes.append(resp["RouteType"])
-	
+
 	return routeCodes, routeDescr, routeTypes
 
 
-# Will be using webGetStops		
+# Will be using webGetStops
 def GetStopCode(stopName, routeCode):
 	json_response = telematics_request(f'?act=webGetStops&p1={routeCode}')
 	stop_codes = []
@@ -84,7 +96,7 @@ def GetStopCode(stopName, routeCode):
 		if resp["StopDescr"].upper() == stopName or resp["StopDescrEng"].upper() == stopName:
 			stop_codes.append(resp["StopCode"])
 			route_stop_orders.append(resp["RouteStopOrder"])
-			
+
 	return stop_codes, route_stop_orders
 
 
@@ -110,14 +122,14 @@ def GetCodesForSchedule(busName, lineCode):
 		sdc_code1 = json_response[1]["sdc_code"]
 		if len(json_response) > 2:
 			sdc_code2 = json_response[2]["sdc_code"]
-	
+
 	if day == 5: #S aturday
 		sdc_code = sdc_code1
 	elif day == 6: # Sunday
 		sdc_code = sdc_code2
 	else: # Any other day
 		sdc_code = sdc_code0
-		
+
 	return sdc_code, sdc_code0, sdc_code1, sdc_code2
 
 
@@ -125,7 +137,7 @@ def GetCodesForSchedule(busName, lineCode):
 def GetNextSchedule(busName, routeType, lineCode, mlCode):
 	sdc_code, sdc_code0, sdc_code1, sdc_code2 = GetCodesForSchedule(busName, lineCode)
 	#for 825: ml_code = 153, sdc_code = 54 (for weekdays), line_code = 857
-	
+
 	#Daily Schedules
 	json_response = telematics_request(f'?act=getDailySchedule&line_code={lineCode}')
 	if not json_response["go"] and not json_response["come"]:
@@ -143,16 +155,16 @@ def GetNextSchedule(busName, routeType, lineCode, mlCode):
 		startOrEnd = "go"
 	else:
 		startOrEnd = "come"
-	
+
 	for resp in json_response[startOrEnd]:
 		sched_string = resp[sde_start].replace("1900-01-01","{}-{}-{}".format(curYear,curMonth,curDay))
 		sched = datetime.datetime.strptime(sched_string,"%Y-%m-%d %H:%M:%S")
-		
+
 		if sched > now: #true if it's the next schedule
 			#message = "{}:{}:{}".format(sched.hour,sched.minute,sched.second)
 			message = sched.strftime("%H:%M")
 			break
-	
+
 	if message == "": # no more schedules for today, look for tomorrow
 		if day == 4: # Friday
 			if sdc_code1:
@@ -166,7 +178,7 @@ def GetNextSchedule(busName, routeType, lineCode, mlCode):
 				sdc_code = sdc_code0
 		else: # Sunday
 			sdc_code = sdc_code0 #get Monday's code
-		
+
 		json_response = telematics_request(f'?act=getSchedLines&p1={mlCode}&p2={sdc_code}&p3={lineCode}')
 		routes = json_response[startOrEnd]
 		if not routes:
@@ -184,7 +196,7 @@ def GetNextSchedule(busName, routeType, lineCode, mlCode):
 		elif "1900-01-03" in firstSched:
 			message = firstSched.replace("1900-01-03 ","")
 		message = message[:-3]
-		
+
 	return message
 
 
@@ -193,9 +205,8 @@ def GetAllSchedules(busName, lineCode, mlCode):
 	if lineCode is None:
 		return "Λεωφορείο {} δε βρήκα. Με έχετε κουράσει με τις **ΜΑΛΑΚΙΕΣ ΣΑΣ**.".format(busName)
 	sdc_code, sdc_code0, sdc_code1, sdc_code2 = GetCodesForSchedule(busName, lineCode)
-	#for 825: ml_code = 153, sdc_code = 54 (for weekdays), line_code = 857
 	#for 218: ml_code = 287, sdc_code = 54 (for weekdays), line_code = 1035
-	
+
 	message = ""
 	#Daily Schedules
 	json_response = telematics_request(f'?act=getDailySchedule&line_code={lineCode}')
@@ -213,7 +224,7 @@ def GetAllSchedules(busName, lineCode, mlCode):
 	firstSched = json_response["go"][0]["sde_start1"].replace("1900-01-01 ","")
 	schedHour = firstSched[:2]
 	#schedHour = "05"
-	
+
 	for resp in json_response["go"]: #από αφετηρία
 		sched_string = resp["sde_start1"]
 		if "1900-01-01" in sched_string:
@@ -225,20 +236,20 @@ def GetAllSchedules(busName, lineCode, mlCode):
 		#sched_string = resp["sde_start1"].replace("1900-01-01 ","")
 		#sched = datetime.datetime.strptime(sched_string,"%Y-%m-%d %H:%M:%S")
 		sched_string = sched_string[:-3]
-		
+
 		if schedHour == sched_string[:2]: #check if it's the same hour
 			message += sched_string + " "
 		else:
 			message += "\n" + sched_string + " "
-		
+
 		schedHour = sched_string[:2]
 		#print(sched_string[:2])
-	
+
 	if json_response["come"]:
 		firstSched = json_response["come"][0]["sde_start2"].replace("1900-01-01 ","")
 		schedHour = firstSched[:2]
 		message += "\n\n**Από τέρμα:**\n"
-		
+
 		for resp in json_response["come"]: #προς αφετηρία (από τέρμα δηλαδή)
 			sched_string = resp["sde_start2"]
 			if "1900-01-01" in sched_string:
@@ -248,17 +259,17 @@ def GetAllSchedules(busName, lineCode, mlCode):
 			elif "1900-01-03" in sched_string:
 				sched_string = sched_string.replace("1900-01-03 ","")
 			sched_string = sched_string[:-3]
-			
+
 			if schedHour == sched_string[:2]: #check if it's the same hour
 				message += sched_string + " "
 			else:
 				message += "\n" + sched_string + " "
-			
+
 			schedHour = sched_string[:2]
 			#print(sched_string[:2])
-	
+
 	return message
-	
+
 # Will be using getStopArrivals, webRoutesForStop
 def FindBusAtStop(busName, stop, routeType, lineCode, mlCode):
 	json_response = telematics_request(f'?act=webRoutesForStop&p1={stop}')
@@ -279,61 +290,90 @@ def FindBusAtStop(busName, stop, routeType, lineCode, mlCode):
 						btimes.append(resp["btime2"])
 				if btimes:
 					allMinutes = ", ".join(map(str, btimes))
-					message = "Το λεωφορείο {} θα περάσει από την στάση {} ({}) σε {} λεπτά".format(busName, stopName, stop, allMinutes)
+					message = "Το λεωφορείο {} θα περάσει από την στάση {} ({}) σε **{} λεπτά**".format(busName, stopName, stop, allMinutes)
 				else: # bus has been found but it's not coming now
 					nextSched = GetNextSchedule(busName, routeType, lineCode, mlCode)
 					message = "Lmao, θα περιμένεις λιγάκι μάλλον γιατί το {} δε περνάει από την στάση {} ({}) αυτή τη στιγμή.\n\nΕπόμενο δρομολόγιο: {}".format(busName, stopName, stop, nextSched)
 			else: # no bus at all is coming now
 				nextSched = GetNextSchedule(busName, routeType, lineCode, mlCode)
 				message = "Lmao, θα περιμένεις λιγάκι μάλλον γιατί ΚΑΝΕΝΑ ΛΕΩΦΟΡΕΙΟ δε περνάει από την στάση {} ({}) αυτή τη στιγμή.\n\nΕπόμενο δρομολόγιο: {}".format(stopName, stop, nextSched)
-		
+
 		else:
 			message = "Δε ξέρω που βρήκες τη στάση {} ({}), αλλά μάλλον είναι εγκαταλελειμμένη or something. Δεν περνάει καμία λεωφορειακή γραμμή από εκεί.".format(stopName, stop)
 	else:
 		message = "Δε βρέθηκε στάση {} ρε. Που τα σκέφτεστε αυτά;".format(stop)
-	
+
+	return message
+
+
+def GetStopArrivals(stop_code):
+	try:
+		json_response = telematics_request(f'?act=getStopArrivals&p1={stop_code}')
+	except:
+			return ""
+	if not json_response:
+		return ""
+	stop_name = GetStopNameGR(stop_code)
+	message = "Αφίξεις στην στάση {}:\n\n".format(stop_name)
+	route_codes = {}
+	for resp in json_response:
+		route_code = resp["route_code"]
+		veh_code = resp["veh_code"]
+		btime2 = resp["btime2"]
+		lineID = ""
+		lineDescr = ""
+		if not route_code in route_codes:
+			stop_routes_response = telematics_request(f'?act=webRoutesForStop&p1={stop_code}')
+			lineCode = ""
+			for stop_route in stop_routes_response:
+				if route_code == stop_route["RouteCode"]:
+					lineCode = stop_route["LineCode"]
+					break
+			lineID, lineDescr = GetLineID(lineCode)
+			route_codes[route_code] = [lineID, lineDescr]
+		else:
+			lineID = route_codes[route_code][0]
+			lineDescr = route_codes[route_code][1]
+
+		message += "- **{}** ({}) σε **{} λεπτά**. Κωδικός οχήματος: {}\n".format(lineID, lineDescr, btime2, veh_code)
 	return message
 
 
 # Will be using getBusLocation
+# For Α1 "PEIRAIAS - VOULA", the routeCode is 2045.
 def FindBusLocation(busName, routeCode):
-	#routeCode = "2006"
 	json_response = telematics_request(f'?act=getBusLocation&p1={routeCode}')
-	#busCoordinateList = []
-	stopCoordinateList = []
-	#zoomValue = 14
 	m = StaticMap(1200, 1200)
 	if json_response:
 		for resp in json_response:
 			CS_LNG = float(resp["CS_LNG"])
 			CS_LAT = float(resp["CS_LAT"])
-			marker = IconMarker([CS_LNG,CS_LAT], "BusMarker.png", 17,62)
+			marker = IconMarker([CS_LNG, CS_LAT], "BusMarker.png", 17, 62)
 			m.add_marker(marker)
-			#busCoordinateList.append([CS_LNG,CS_LAT])
-			
-		#for coordinate in busCoordinateList:
-			#marker = CircleMarker(coordinate, '#4286f4', 12)
-			
-			#zoomValue -= 1
-		
-	json_response = telematics_request(f'?act=webGetStops&p1={routeCode}')
-	for resp in json_response:
+
+	stopCoordinateList = []
+	json_response = telematics_request(f'?act=webGetRoutesDetailsAndStops&p1={routeCode}')
+	for resp in json_response["stops"]:
 		StopLng = float(resp["StopLng"])
 		StopLat = float(resp["StopLat"])
-		stopCoordinateList.append([StopLng,StopLat])
-	
-	#for coordinate in stopCoordinateList:
-	#	marker = CircleMarker(coordinate, '#4286f4', 12)
-	#	m.add_marker(marker)
-	
-	firstStop = CircleMarker(stopCoordinateList[0], '#37fc4b', 12) #first stop
-	lastStop = CircleMarker(stopCoordinateList[-1], '#f45c42', 12) #last stop
+		coordinate = [StopLng, StopLat]
+		stopCoordinateList.append(coordinate)
+		marker = CircleMarker(coordinate, '#4286f4', 6)
+		m.add_marker(marker)
+
+	firstStop = CircleMarker(stopCoordinateList[0], '#37fc4b', 12) # first stop
+	lastStop = CircleMarker(stopCoordinateList[-1], '#f45c42', 12) # last stop
 	m.add_marker(firstStop)
 	m.add_marker(lastStop)
-	
-	line = Line(stopCoordinateList,'#4286f4',4) #draw a line through all stops, which is basically the route itself
+
+	routeCoordinateList = []
+	for resp in json_response["details"]:
+		routed_x = float(resp["routed_x"])
+		routed_y = float(resp["routed_y"])
+		routeCoordinateList.append([routed_x, routed_y])
+	line = Line(routeCoordinateList, '#4286f4', 3) # Draw a line through the entire route.
 	m.add_line(line)
-		
+
 	mapImg = m.render()
 	mapImg.save("BusLocation.png")
 	return mapImg

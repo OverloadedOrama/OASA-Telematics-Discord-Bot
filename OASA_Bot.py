@@ -55,8 +55,14 @@ async def on_message(message):
                 try:
                         lineCodes, lineDescr, mlCodes, sdc_codes = OASA.GetLineCodesWithMLInfo(busName)
                         if len(lineCodes) == 0:
-                                await chan.send("Δε βρήκα κάποια γραμμή για το λεωφορείο {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
-                                return
+                                # Check if it's a stop code instead.
+                                stop_arrivals_message = OASA.GetStopArrivals(busName)
+                                if stop_arrivals_message == "":
+                                        await chan.send("Δε βρήκα ούτε λεωφορείο, ούτε κωδικό στάσης {} φίλε/φίλη/φιλί :kiss: μου".format(busName))
+                                        return
+                                else:
+                                        await chan.send(stop_arrivals_message)
+                                        return
                 except requests.exceptions.ConnectionError:
                         await chan.send("Connection error when trying to get the line code(s)")
                         return
