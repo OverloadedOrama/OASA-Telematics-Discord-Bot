@@ -2,8 +2,8 @@
 import discord
 from discord.ext.commands import Bot
 from discord.ext import commands
-import sys #for OASA exception
-import requests #for OASA exception
+import sys # for OASA exception
+import requests # for OASA exception
 import OASA_Scraper as OASA
 
 TOKEN = "YourTokenHere"
@@ -95,8 +95,10 @@ async def on_message(message):
                         stopName = stop
                         routeType = routeTypes[direction - 1] # 1 from start or if it's cyclic, 2 from end
                         if any(c.isalpha() for c in stop):
-                                stop = OASA.GetStopCode(stopName, routeCode)
-                        if stop == "":
+                                stop_codes, route_stop_orders = OASA.GetStopCode(stopName, routeCode)
+                                stop = await getStopCode(chan, stop_codes, route_stop_orders, busName, message)
+                                
+                        if stop == "" or stop == "None":
                                 await chan.send("Στάση {} εγώ πάντως δεν βρήκα. Μήπως κάναμε κανένα λαθάκι; ΗΛΙΘΙΕ".format(stopName))
                                 return
 
@@ -154,10 +156,8 @@ async def getLineCode(chan, lineCodes, lineDescr, busName, message):
                 return lineCode, 0
         else:
                 line_msg = "Ποια εναλλακτική γραμμή του λεωφορείου {} σε ενδιαφέρει;\n\n".format(busName)
-                i = 1
-                for line in lineDescr:
-                        line_msg += line + " ({})\n".format(i)
-                        i += 1
+                for i, line in enumerate(lineDescr):
+                        line_msg += line + " ({})\n".format(i + 1)
                 await chan.send(line_msg)
 
                 def check_if_same_author(m):
@@ -184,15 +184,12 @@ async def getRouteCode(chan, routeCodes, routeDescr, busName, message):
                 return routeCode, 1
         else:
                 route_msg = "Ποια διαδρομή του λεωφορείου {} σε ενδιαφέρει;\n\n".format(busName)
-                i = 1
-                for route in routeDescr:
-                        route_msg += route + " ({})\n".format(i)
-                        i += 1
+                for i, route in enumerate(routeDescr):
+                        route_msg += route + " ({})\n".format(i + 1)
                 await chan.send(route_msg)
 
                 def check_if_same_author(m):
                         return message.author == m.author
-
 
                 direction = await client.wait_for("message", check = check_if_same_author)
                 await chan.typing()
@@ -208,5 +205,32 @@ async def getRouteCode(chan, routeCodes, routeDescr, busName, message):
                         await chan.send("Ακούσε να δεις ΑΝΘΡΩΠΑΚΙ. Δεν θα με τρολάρεις ΕΣΥ ΕΜΕΝΑ, ΚΑΤΑΛΑΒΕΣ;")
                         return -1, -1
 
+async def getStopCode(chan, stop_codes, route_stop_orders, busName, message):
+        if len(stop_codes) == 0:
+                return ""
+        elif len(stop_codes) == 1:
+                return stop_codes[0]
+        else:
+                stop_msg = "Βρέθηκαν πολλές στάσεις με το ίδιο όνομα στην ίδια λεωφορειακή γραμμή {}. Ποια από όλες σε ενδιαφέρει;\n\n".format(busName)
+                for i, stop_order in enumerate(route_stop_orders):
+                        stop_msg += "Η {}η με κωδικό στάσης {} ({})\n".format(stop_order, stop_codes[i], i + 1)
+                await chan.send(stop_msg)
+
+                def check_if_same_author(m):
+                        return message.author == m.author
+
+                chosen_stop = await client.wait_for("message", check = check_if_same_author)
+                await chan.typing()
+                chosen_stop = chosen_stop.content
+                try:
+                        chosen_stop_int = int(chosen_stop)
+                        if len(stop_codes) >= chosen_stop_int:
+                                stop_code = stop_codes[chosen_stop_int - 1]
+                                return stop_code
+                        await chan.send("Μάθε να μετράς πρώτα ΑΝΘΡΩΠΑΚΙ... και μετά μίλα μου. Γκέγκε;")
+                        return -1
+                except ValueError:
+                        await chan.send("Ακούσε να δεις ΑΝΘΡΩΠΑΚΙ. Δεν θα με τρολάρεις ΕΣΥ ΕΜΕΝΑ, ΚΑΤΑΛΑΒΕΣ;")
+                        return -1
 
 client.run(TOKEN)

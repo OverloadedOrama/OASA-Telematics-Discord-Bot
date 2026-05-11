@@ -78,13 +78,14 @@ def GetRouteCodes(busName, lineCode):
 # Will be using webGetStops		
 def GetStopCode(stopName, routeCode):
 	json_response = telematics_request(f'?act=webGetStops&p1={routeCode}')
-	stop = ""
+	stop_codes = []
+	route_stop_orders = []
 	for resp in json_response:
-		if resp["StopDescr"] == stopName or resp["StopDescrEng"] == stopName:
-			stop = resp["StopCode"]
-			break
+		if resp["StopDescr"].upper() == stopName or resp["StopDescrEng"].upper() == stopName:
+			stop_codes.append(resp["StopCode"])
+			route_stop_orders.append(resp["RouteStopOrder"])
 			
-	return stop
+	return stop_codes, route_stop_orders
 
 
 # Will be using getStopNameAndXY
@@ -152,18 +153,18 @@ def GetNextSchedule(busName, routeType, lineCode, mlCode):
 			message = sched.strftime("%H:%M")
 			break
 	
-	if message == "": #no more schedules for today, look for tomorrow
-		if day == 4: #Friday
+	if message == "": # no more schedules for today, look for tomorrow
+		if day == 4: # Friday
 			if sdc_code1:
-				sdc_code = sdc_code1 #get Saturday's code
+				sdc_code = sdc_code1 # get Saturday's code
 			else:
 				sdc_code = sdc_code0
-		elif day == 5: #Saturday
+		elif day == 5: # Saturday
 			if sdc_code2:
 				sdc_code = sdc_code2 #get Sunday's code
 			else:
 				sdc_code = sdc_code0
-		else: #Sunday
+		else: # Sunday
 			sdc_code = sdc_code0 #get Monday's code
 		
 		json_response = telematics_request(f'?act=getSchedLines&p1={mlCode}&p2={sdc_code}&p3={lineCode}')
@@ -269,7 +270,6 @@ def FindBusAtStop(busName, stop, routeType, lineCode, mlCode):
 			if resp["LineID"] == busName:
 				routeCodes.append(resp["RouteCode"])
 
-
 		btimes = []
 		if routeCodes: # if routeCode has been found
 			json_response = telematics_request(f'?act=getStopArrivals&p1={stop}')
@@ -279,22 +279,23 @@ def FindBusAtStop(busName, stop, routeType, lineCode, mlCode):
 						btimes.append(resp["btime2"])
 				if btimes:
 					allMinutes = ", ".join(map(str, btimes))
-					message = "Το λεωφορείο {} θα περάσει από την στάση {} σε {} λεπτά".format(busName, stopName, allMinutes)
+					message = "Το λεωφορείο {} θα περάσει από την στάση {} ({}) σε {} λεπτά".format(busName, stopName, stop, allMinutes)
 				else: # bus has been found but it's not coming now
 					nextSched = GetNextSchedule(busName, routeType, lineCode, mlCode)
-					message = "Lmao, θα περιμένεις λιγάκι μάλλον γιατί το {} δε περνάει από την στάση {} αυτή τη στιγμή.\n\nΕπόμενο δρομολόγιο: {}".format(busName, stopName,nextSched)
+					message = "Lmao, θα περιμένεις λιγάκι μάλλον γιατί το {} δε περνάει από την στάση {} ({}) αυτή τη στιγμή.\n\nΕπόμενο δρομολόγιο: {}".format(busName, stopName, stop, nextSched)
 			else: # no bus at all is coming now
 				nextSched = GetNextSchedule(busName, routeType, lineCode, mlCode)
-				message = "Lmao, θα περιμένεις λιγάκι μάλλον γιατί ΚΑΝΕΝΑ ΛΕΩΦΟΡΕΙΟ δε περνάει από την στάση {} αυτή τη στιγμή.\n\nΕπόμενο δρομολόγιο: {}".format(stopName,nextSched)
+				message = "Lmao, θα περιμένεις λιγάκι μάλλον γιατί ΚΑΝΕΝΑ ΛΕΩΦΟΡΕΙΟ δε περνάει από την στάση {} ({}) αυτή τη στιγμή.\n\nΕπόμενο δρομολόγιο: {}".format(stopName, stop, nextSched)
 		
 		else:
-			message = "Δε ξέρω που βρήκες τη στάση {}, αλλά μάλλον είναι εγκαταλελειμμένη or something. Δεν περνάει καμία λεωφορειακή γραμμή από εκεί.".format(stopName)
+			message = "Δε ξέρω που βρήκες τη στάση {} ({}), αλλά μάλλον είναι εγκαταλελειμμένη or something. Δεν περνάει καμία λεωφορειακή γραμμή από εκεί.".format(stopName, stop)
 	else:
 		message = "Δε βρέθηκε στάση {} ρε. Που τα σκέφτεστε αυτά;".format(stop)
 	
 	return message
 
-#Will be using getBusLocation
+
+# Will be using getBusLocation
 def FindBusLocation(busName, routeCode):
 	#routeCode = "2006"
 	json_response = telematics_request(f'?act=getBusLocation&p1={routeCode}')
